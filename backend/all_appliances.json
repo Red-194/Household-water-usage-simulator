@@ -1,0 +1,519 @@
+{
+  "schema_version": "appliance_priors_v1",
+  "count": 6,
+  "appliances": [
+    {
+      "appliance": "shower",
+      "version": "1.1-india",
+      "dataset_span": {
+        "start_ts": 1550048311,
+        "end_ts": 1603297596,
+        "span_seconds": 53249285.0,
+        "span_days": 616.3111689814815,
+        "span_days_ceil": 617
+      },
+      "activation": {
+        "events_per_day": {
+          "type": "poisson",
+          "lambda": 0.8816855753646677
+        }
+      },
+      "timing": {
+        "start_hour": {
+          "type": "categorical",
+          "p": [
+            0.03125,
+            0.009191176470588236,
+            0.014705882352941176,
+            0.029411764705882353,
+            0.011029411764705883,
+            0.07169117647058823,
+            0.10110294117647059,
+            0.04963235294117647,
+            0.06433823529411764,
+            0.051470588235294115,
+            0.02022058823529412,
+            0.03860294117647059,
+            0.03308823529411765,
+            0.03125,
+            0.034926470588235295,
+            0.04595588235294118,
+            0.058823529411764705,
+            0.05514705882352941,
+            0.04411764705882353,
+            0.04779411764705882,
+            0.042279411764705885,
+            0.04044117647058824,
+            0.042279411764705885,
+            0.03125
+          ]
+        }
+      },
+      "duration": {
+        "type": "lognormal",
+        "shape": 0.6,
+        "scale": 420,
+        "unit": "seconds"
+      },
+      "flow": {
+        "mean_flow": {
+          "type": "lognormal",
+          "shape": 1.6167587382714508,
+          "scale": 18.19015840112026,
+          "unit": "ml/s"
+        },
+        "peak_flow": {
+          "type": "lognormal",
+          "shape": 1.7155764057367626,
+          "scale": 29.401710568721438,
+          "unit": "ml/s"
+        }
+      },
+      "shape": {
+        "type": "trapezoid",
+        "ramp_up_s": 5,
+        "ramp_down_s": 5
+      },
+      "constraints": {
+        "volume_relation": "volume = mean_flow * duration",
+        "min_duration_s": 1.0,
+        "max_duration_s": 1118.0
+      },
+      "calibration": {
+        "region": "India",
+        "method": "deterministic scaling",
+        "flow_scale_factors": {
+          "mean": 2.0,
+          "peak": 2.5
+        },
+        "notes": "Flow rates scaled to reflect Indian domestic fixtures (MoHUA / BIS guidance, manufacturer specs). Timing, duration, and activation priors unchanged."
+      }
+    },
+    {
+      "appliance": "washingmachine",
+      "version": "1.1-india",
+      "dataset_span": {
+        "start_ts": 1550048311,
+        "end_ts": 1603297596,
+        "span_seconds": 53249285.0,
+        "span_days": 616.3111689814815,
+        "span_days_ceil": 617
+      },
+      "activation": {
+        "events_per_day": {
+          "type": "poisson",
+          "lambda": 0.3905996758508914
+        }
+      },
+      "timing": {
+        "start_hour": {
+          "type": "categorical",
+          "p": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.012448132780082987,
+            0.07053941908713693,
+            0.2821576763485477,
+            0.2697095435684647,
+            0.12448132780082988,
+            0.07468879668049792,
+            0.0995850622406639,
+            0.016597510373443983,
+            0.016597510373443983,
+            0.004149377593360996,
+            0.008298755186721992,
+            0.008298755186721992,
+            0.004149377593360996,
+            0.0,
+            0.0,
+            0.008298755186721992,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "duration": {
+        "type": "lognormal",
+        "shape": 0.2,
+        "scale": 2700,
+        "unit": "seconds"
+      },
+      "flow": {
+        "mean_flow": {
+          "type": "lognormal",
+          "shape": 0.3,
+          "scale": 20,
+          "unit": "ml/s"
+        },
+        "peak_flow": {
+          "type": "lognormal",
+          "shape": 0.3,
+          "scale": 127.24137219744152,
+          "unit": "ml/s"
+        }
+      },
+      "shape": {
+        "type": "pulsed"
+      },
+      "constraints": {
+        "volume_relation": "volume = mean_flow * duration",
+        "min_duration_s": 2700,
+        "max_duration_s": 3600
+      },
+      "calibration": {
+        "region": "India",
+        "method": "deterministic scaling",
+        "flow_scale_factors": {
+          "mean": 1.2,
+          "peak": 1.5
+        },
+        "notes": "Flow rates scaled to reflect Indian domestic fixtures (MoHUA / BIS guidance, manufacturer specs). Duration updated to reflect realistic single-person Indian household washing machine cycle (45–60 min). Timing and activation priors unchanged."
+      }
+    },
+    {
+      "appliance": "bidet",
+      "version": "1.1-india",
+      "dataset_span": {
+        "start_ts": 1550048311,
+        "end_ts": 1603297596,
+        "span_seconds": 53249285.0,
+        "span_days": 616.3111689814815,
+        "span_days_ceil": 617
+      },
+      "activation": {
+        "events_per_day": {
+          "type": "poisson",
+          "lambda": 3.5
+        }
+      },
+      "timing": {
+        "start_hour": {
+          "type": "categorical",
+          "p": [
+            0.029532403609515995,
+            0.014766201804757998,
+            0.027071369975389663,
+            0.012305168170631665,
+            0.005742411812961444,
+            0.044298605414273995,
+            0.10172272354388844,
+            0.07383100902378999,
+            0.06890894175553733,
+            0.05004101722723544,
+            0.04183757178014766,
+            0.033634126333059886,
+            0.043478260869565216,
+            0.03281378178835111,
+            0.022149302707136997,
+            0.04675963904840033,
+            0.051681706316652996,
+            0.0475799835931091,
+            0.044298605414273995,
+            0.05004101722723544,
+            0.03937653814602133,
+            0.052502050861361775,
+            0.04101722723543889,
+            0.02461033634126333
+          ]
+        }
+      },
+      "duration": {
+        "type": "lognormal",
+        "shape": 0.6,
+        "scale": 25,
+        "unit": "seconds"
+      },
+      "flow": {
+        "mean_flow": {
+          "type": "lognormal",
+          "shape": 1.3901086939691407,
+          "scale": 33.937211946278715,
+          "unit": "ml/s"
+        },
+        "peak_flow": {
+          "type": "lognormal",
+          "shape": 1.4900842592845085,
+          "scale": 51.52768592758596,
+          "unit": "ml/s"
+        }
+      },
+      "shape": {
+        "type": "trapezoid",
+        "ramp_up_s": 5,
+        "ramp_down_s": 5
+      },
+      "constraints": {
+        "volume_relation": "volume = mean_flow * duration",
+        "min_duration_s": 5,
+        "max_duration_s": 120
+      },
+      "calibration": {
+        "region": "India",
+        "method": "deterministic scaling",
+        "flow_scale_factors": {
+          "mean": 3.0,
+          "peak": 4.0
+        },
+        "notes": "Flow rates scaled to reflect Indian domestic fixtures (MoHUA / BIS guidance, manufacturer specs). Timing, duration, and activation priors unchanged."
+      }
+    },
+    {
+      "appliance": "washbasin",
+      "version": "1.1-india",
+      "dataset_span": {
+        "start_ts": 1550048311,
+        "end_ts": 1603297596,
+        "span_seconds": 53249285.0,
+        "span_days": 616.3111689814815,
+        "span_days_ceil": 617
+      },
+      "activation": {
+        "events_per_day": {
+          "type": "poisson",
+          "lambda": 13.993517017828202
+        }
+      },
+      "timing": {
+        "start_hour": {
+          "type": "categorical",
+          "p": [
+            0.014014361825341673,
+            0.007296733842946491,
+            0.010076441973592773,
+            0.00590687977762335,
+            0.004169562195969423,
+            0.04794996525364837,
+            0.14164929349085012,
+            0.08188556868195507,
+            0.0684503127171647,
+            0.04841324994208941,
+            0.042738012508686585,
+            0.02837618716701413,
+            0.03266157053509382,
+            0.03231410701876303,
+            0.03856845031271716,
+            0.06613388927495946,
+            0.055130877924484595,
+            0.04424368774611999,
+            0.04366458188556868,
+            0.0472550382209868,
+            0.04586518415566365,
+            0.0339356034283067,
+            0.036599490386842716,
+            0.022700949733611305
+          ]
+        }
+      },
+      "duration": {
+        "type": "lognormal",
+        "shape": 0.5,
+        "scale": 15,
+        "unit": "seconds"
+      },
+      "flow": {
+        "mean_flow": {
+          "type": "lognormal",
+          "shape": 1.2216258914813973,
+          "scale": 33,
+          "unit": "ml/s"
+        },
+        "peak_flow": {
+          "type": "lognormal",
+          "shape": 1.2712156619783785,
+          "scale": 58.81063800993969,
+          "unit": "ml/s"
+        }
+      },
+      "shape": {
+        "type": "step"
+      },
+      "constraints": {
+        "volume_relation": "volume = mean_flow * duration",
+        "min_duration_s": 1.0,
+        "max_duration_s": 60.0
+      },
+      "calibration": {
+        "region": "India",
+        "method": "deterministic scaling",
+        "flow_scale_factors": {
+          "mean": 2.5,
+          "peak": 3.5
+        },
+        "notes": "Flow rates scaled to reflect Indian domestic fixtures (MoHUA / BIS guidance, manufacturer specs). Timing, duration, and activation priors unchanged."
+      }
+    },
+    {
+      "appliance": "kitchenfaucet",
+      "version": "1.1-india",
+      "dataset_span": {
+        "start_ts": 1550048311,
+        "end_ts": 1603297596,
+        "span_seconds": 53249285.0,
+        "span_days": 616.3111689814815,
+        "span_days_ceil": 617
+      },
+      "activation": {
+        "events_per_day": {
+          "type": "poisson",
+          "lambda": 11.554294975688817
+        }
+      },
+      "timing": {
+        "start_hour": {
+          "type": "categorical",
+          "p": [
+            0.012203675129751719,
+            0.0009819048954972647,
+            0.0018235376630663486,
+            0.0009819048954972647,
+            0.0005610885117127227,
+            0.05260204797306775,
+            0.08374246037312386,
+            0.07504558844157666,
+            0.06214055267218404,
+            0.037873474540608784,
+            0.046710618600084165,
+            0.06705007714967036,
+            0.07125824098751578,
+            0.0493757890307196,
+            0.031701500911768835,
+            0.03394585495861972,
+            0.04502735306494599,
+            0.044606536681161456,
+            0.06017674288118951,
+            0.08837144059475383,
+            0.05793238883433862,
+            0.032543133679337914,
+            0.024828166643287977,
+            0.01851592088651985
+          ]
+        }
+      },
+      "duration": {
+        "type": "lognormal",
+        "shape": 0.9,
+        "scale": 12,
+        "unit": "seconds"
+      },
+      "flow": {
+        "mean_flow": {
+          "type": "lognormal",
+          "shape": 1.4338230134488268,
+          "scale": 34,
+          "unit": "ml/s"
+        },
+        "peak_flow": {
+          "type": "lognormal",
+          "shape": 1.533962764264816,
+          "scale": 68.61063472733058,
+          "unit": "ml/s"
+        }
+      },
+      "shape": {
+        "type": "step"
+      },
+      "constraints": {
+        "volume_relation": "volume = mean_flow * duration",
+        "min_duration_s": 1.0,
+        "max_duration_s": 120
+      },
+      "calibration": {
+        "region": "India",
+        "method": "deterministic scaling",
+        "flow_scale_factors": {
+          "mean": 3.0,
+          "peak": 4.0
+        },
+        "notes": "Flow rates scaled to reflect Indian domestic fixtures (MoHUA / BIS guidance, manufacturer specs). Timing, duration, and activation priors unchanged."
+      }
+    },
+    {
+      "appliance": "toilet",
+      "version": "1.1-india",
+      "dataset_span": {
+        "start_ts": 1550048311,
+        "end_ts": 1603297596,
+        "span_seconds": 53249285.0,
+        "span_days": 616.3111689814815,
+        "span_days_ceil": 617
+      },
+      "activation": {
+        "events_per_day": {
+          "type": "poisson",
+          "lambda": 4.0
+        }
+      },
+      "timing": {
+        "start_hour": {
+          "type": "categorical",
+          "p": [
+            0.009259259259259259,
+            0.005892255892255892,
+            0.009259259259259259,
+            0.005050505050505051,
+            0.005050505050505051,
+            0.045454545454545456,
+            0.12205387205387205,
+            0.1111111111111111,
+            0.0664983164983165,
+            0.04713804713804714,
+            0.04377104377104377,
+            0.04377104377104377,
+            0.03282828282828283,
+            0.04377104377104377,
+            0.03872053872053872,
+            0.041245791245791245,
+            0.04377104377104377,
+            0.04713804713804714,
+            0.047979797979797977,
+            0.03872053872053872,
+            0.041245791245791245,
+            0.04461279461279461,
+            0.03872053872053872,
+            0.026936026936026935
+          ]
+        }
+      },
+      "duration": {
+        "type": "fixed",
+        "value": 360.0,
+        "unit": "seconds"
+      },
+      "flow": {
+        "mean_flow": {
+          "type": "lognormal",
+          "shape": 2.2204975607652384e-16,
+          "scale": 16.7,
+          "unit": "ml/s"
+        },
+        "peak_flow": {
+          "type": "lognormal",
+          "shape": 2.2204975607652384e-16,
+          "scale": 16.7,
+          "unit": "ml/s"
+        }
+      },
+      "shape": {
+        "type": "step"
+      },
+      "constraints": {
+        "volume_relation": "volume = mean_flow * duration",
+        "min_duration_s": 360.0,
+        "max_duration_s": 360.0
+      },
+      "calibration": {
+        "region": "India",
+        "method": "deterministic scaling",
+        "flow_scale_factors": {
+          "mean": 1.0,
+          "peak": 1.0
+        },
+        "notes": "Flow rates scaled to reflect Indian domestic fixtures (MoHUA / BIS guidance, manufacturer specs). Timing, duration, and activation priors unchanged."
+      }
+    }
+  ]
+}
