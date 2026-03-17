@@ -1,11 +1,26 @@
 """
 Water Flow Simulation for Household Appliances
 
-This module simulates realistic water usage patterns for household appliances
-based on Indian consumption standards. It generates minute-by-minute flow data
-with realistic usage patterns, timing distributions, and sensor noise.
+DESCRIPTION:
+    Generates realistic minute-by-minute water usage data for household appliances
+    based on Indian consumption standards. Produces synthetic 365-day datasets with
+    authentic temporal patterns, appliance-specific behaviors, and sensor noise.
 
-Author: Water Detection Simulation System
+KEY FEATURES:
+    - Appliance-aware event generation (showers, toilets, washing machines, etc.)
+    - Realistic flow shape curves (trapezoid ramps, pulsed patterns)
+    - Daily volume constraints (100-160 L/day per BIS IS 1172 standards)
+    - Multi-attempt regeneration for volume validation
+    - Additive sensor noise on non-zero flow bins
+    - Sliding-window feature extraction for ML models
+
+OUTPUT:
+    - household_flow_365d.csv: Minute-level flow rates (1440 * 365 rows)
+    - household_events_365d.csv: Event log with timing, duration, flow per appliance
+
+DEPENDENCIES:
+    - numpy, pandas: Data processing and math
+    - json: Appliance configuration loading
 """
 
 import json
@@ -14,101 +29,71 @@ import pandas as pd
 import os
 import warnings
 
-# File paths and output configuration
-PRIORS_PATH = "all_appliances.json"  # Path to appliance configuration JSON
-OUTPUT_DIR = "simulator_data"  # Directory for simulation output files
+PRIORS_PATH = "all_appliances.json"
+OUTPUT_DIR = "simulator_data"
 
-# Simulation parameters
-DAYS = 365  # Number of days to simulate
-MINUTES_PER_DAY = 1440  # Minutes in a day (24 * 60)
-SECONDS_PER_MIN = 60  # Seconds per minute
-START_TS = 0  # Starting timestamp for simulation
+DAYS = 365
+MINUTES_PER_DAY = 1440
+SECONDS_PER_MIN = 60
+START_TS = 0
 
-# Physical constraints
-MAX_FLOW_LPM = 15.0  # Maximum flow rate in liters per minute
+MAX_FLOW_LPM = 15.0
 
-# Daily water budget (India, single-person well-served household)
-# Lower bound: BIS IS 1172 / MoHUA recommended minimum (135 LPCD)
-# Upper bound: comfortable urban usage above BIS norm
-DAILY_MIN_L = 100  # Minimum daily water usage in liters
-DAILY_MAX_L = 160  # Maximum daily water usage in liters
+DAILY_MIN_L = 100
+DAILY_MAX_L = 160
 
-MAX_REGEN_ATTEMPTS = 10  # Maximum attempts to generate valid daily usage
+MAX_REGEN_ATTEMPTS = 10
 
-# Sensor noise (multiplicative std dev)
-NOISE_SIGMA = 0.03  # Standard deviation for sensor noise as fraction of signal
+NOISE_SIGMA = 0.03
 
-# Weekly appliance offsets — generated inside simulate() to avoid
-# corrupting the random state when this module is imported elsewhere
-WM_OFFSET = None  # Washing machine weekly offset (day of week)
-
-# =============================
-# HELPER FUNCTIONS
-# =============================
+WM_OFFSET = None
 
 def sample_lognormal(shape, scale):
     """
-    Sample from a log-normal distribution.
+    Sample a random value from a log-normal distribution.
     
-    Args:
-        shape (float): Shape parameter (sigma in log-normal)
-        scale (float): Scale parameter (median of the distribution)
-    
-    Returns:
-        float: Random sample from log-normal distribution
+    Used for realistic flow rates and durations across diverse appliances.
+    Log-normal better captures the skewed nature of water usage (long tail of
+    extended sessions).
     """
     return np.random.lognormal(mean=np.log(scale), sigma=shape)
 
 
 def sample_start_minute(hour_probs):
     """
-    Sample a random start minute within a day based on hourly probabilities.
+    Sample a random start minute within the day based on hourly usage patterns.
     
-    Args:
-        hour_probs (list): Probability distribution over 24 hours
-    
-    Returns:
-        int: Random minute of the day (0-1439)
+    Selects an hour using the appliance's hourly probability distribution,
+    then adds random offset (0-59 minutes). Preserves realistic timing patterns
+    while avoiding artificial gridding at hour boundaries.
     """
     return np.random.choice(24, p=hour_probs) * 60 + np.random.randint(60)
 
 
 def bounded_duration(scale, min_s, max_s):
     """
-    Sample duration from normal distribution with bounds.
+    Sample duration from normal distribution with hard constraints.
     
-    Args:
-        scale (float): Mean duration in seconds
-        min_s (float): Minimum allowed duration
-        max_s (float): Maximum allowed duration
-    
-    Returns:
-        float: Bounded duration in seconds
+    Generates durations with inherent variability (±25% standard deviation)
+    while respecting appliance-specific min/max bounds. Used for quick-use
+    appliances (washbasin, faucets) with relatively predictable usage times.
     """
     return np.clip(
         np.random.normal(loc=scale, scale=0.25 * scale),
         min_s,
         max_s
     )
-
-# =============================
-# SHAPE CURVES
-# =============================
 def make_shape_curve(shape, shape_cfg, dur):
     """
-    Generate a normalized flow shape curve for appliance usage patterns.
+    Generate a normalized flow shape curve for realistic appliance usage patterns.
     
-    Creates realistic flow patterns like trapezoids (gradual start/stop) or
-    pulsed patterns (intermittent flow). The curve is normalized to mean=1.0
-    to preserve the sampled flow rate.
+    Simulates different water usage characteristics:
+    - "trapezoid": Gradual ramp-up/ramp-down (realistic taps, showers)
+    - "pulsed": Intermittent on-off pattern (washing machines, certain cycles)
+    - default "step": Constant flow (simple model)
     
-    Args:
-        shape (str): Shape type ('trapezoid', 'pulsed', or default 'step')
-        shape_cfg (dict): Shape configuration parameters
-        dur (int): Duration in minutes
-    
-    Returns:
-        np.ndarray: Normalized flow curve with mean=1.0
+    Curve is normalized to mean=1.0 to preserve the sampled flow rate across
+    different shape types, ensuring fair comparison and consistent volume control.
     """
     if shape == "trapezoid" and dur >= 4:
         ramp_s = shape_cfg.get("ramp_up_s", 5)
@@ -146,15 +131,14 @@ def generate_events_for_day(appliance, day):
     """
     Generate water usage events for a specific appliance on a given day.
     
-    This function creates realistic usage events based on appliance-specific
-    patterns, including frequency, timing, duration, and flow characteristics.
+    Orchestrates realistic event generation by:
+    1. Sampling daily event count from Poisson distribution (λ = expected events)
+    2. Applying appliance-specific constraints (shower ≥1, toilet ≥2, WM once/week)
+    3. Sampling start times using hourly probability distributions
+    4. Sampling durations (fixed or random) within min/max constraints
+    5. Sampling flow rates from log-normal distribution
     
-    Args:
-        appliance (dict): Appliance configuration with usage patterns
-        day (int): Day number (0-based) for simulation
-    
-    Returns:
-        list: List of event dictionaries containing usage details
+    Produces event dictionaries that are later rendered into flow time series.
     """
     name      = appliance["appliance"]
     lam       = appliance["activation"]["events_per_day"]["lambda"]
@@ -219,17 +203,16 @@ def generate_events_for_day(appliance, day):
 # =============================
 def render_day(events, day):
     """
-    Render a day's worth of water flow data from usage events.
+    Render a day's worth of minute-level flow data from usage events.
     
-    Converts water usage events into minute-by-minute flow rates,
-    applying shape curves and flow limits.
+    Converts discrete events into continuous flow time series by:
+    1. Initializing a zero flow array (1440 minutes)
+    2. For each event: converting event flow/duration to minute grid
+    3. Applying shape curves (trapezoid/pulsed) for realistic profiles
+    4. Clipping flow to MAX_FLOW_LPM to respect physical constraints
+    5. Accumulating overlapping appliance flows
     
-    Args:
-        events (list): List of water usage event dictionaries
-        day (int): Day number for calculating relative timing
-    
-    Returns:
-        np.ndarray: Array of flow rates for each minute of the day (LPM)
+    Output is passed to noise injection in the simulate() function.
     """
     flow = np.zeros(MINUTES_PER_DAY)
 
@@ -257,20 +240,24 @@ def render_day(events, day):
 # =============================
 def simulate(priors, days, seed=42):
     """
-    Run the complete water flow simulation for specified number of days.
+    Run complete water flow simulation for specified number of days.
     
-    Generates realistic water usage patterns with proper daily volumes,
-    sensor noise, and appliance scheduling patterns.
+    ALGORITHM:
+    1. Set random seed for reproducibility
+    2. Initialize washing machine weekly offset (avoid RNG state corruption)
+    3. For each day:
+        a. Generate events for all appliances
+        b. Render events to minute-level flows
+        c. Check daily volume [DAILY_MIN_L, DAILY_MAX_L]
+        d. Retry up to MAX_REGEN_ATTEMPTS if volume invalid
+        e. Apply additive sensor noise (Gaussian, σ=NOISE_SIGMA*flow)
+    4. Aggregate all flows and events into DataFrames
+    5. Return flows with timestamps, and cleaned events (without shape_cfg)
     
-    Args:
-        priors (list): List of appliance configuration dictionaries
-        days (int): Number of days to simulate
-        seed (int): Random seed for reproducible results
-    
-    Returns:
-        tuple: (flow_dataframe, events_dataframe)
-            - flow_dataframe: Minute-by-minute flow data with timestamps
-            - events_dataframe: Individual usage events with details
+    RETURNS:
+        tuple: (flow_df, events_df)
+            - flow_df: columns [timestamp (seconds), flow_lpm]
+            - events_df: columns [appliance, start_min, duration_s, mean_flow_ml_s, shape]
     """
     np.random.seed(seed)
 
@@ -344,15 +331,17 @@ def compute_daily_usage(df):
     df["day"] = df["timestamp"] // 86400
     return df.groupby("day")["flow_lpm"].sum()
 
-# =============================
-# RUN
-# =============================
+
 if __name__ == "__main__":
     """
-    Main execution block for running water flow simulation.
+    Standalone execution: Generates 365-day synthetic water usage dataset.
     
-    Generates a 365-day simulation, saves data to CSV files,
-    and prints summary statistics.
+    OUTPUT:
+        - simulator_data/household_flow_365d.csv (525,600 rows)
+        - simulator_data/household_events_365d.csv (event log)
+    PRINTS:
+        - Event counts by appliance
+        - Daily usage statistics (mean, min, max)
     """
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 

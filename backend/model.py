@@ -1,3 +1,23 @@
+"""
+Hybrid Water Anomaly Detection Model
+
+DESCRIPTION:
+    Implements a hybrid anomaly detector for household water flow data, combining
+    statistical CUSUM change detection with a machine learning Isolation Forest.
+    Used for real-time leak/anomaly detection in streaming or batch settings.
+
+KEY FEATURES:
+    - CUSUM (level 2): Detects persistent low-flow deviations (leaks)
+    - Isolation Forest (level 3): Detects statistical anomalies in feature space
+    - Feature extraction: 5 features per window (see _extract_features)
+    - Persistence filter: Reduces false positives by requiring consecutive anomalies
+    - Tunable thresholds and weights for flexible deployment
+
+DEPENDENCIES:
+    - numpy: Data processing
+    - sklearn: Model/scaler (passed in from training script)
+"""
+
 import numpy as np
 
 
@@ -19,6 +39,9 @@ class HybridWaterAnomalyDetector:
         decision_threshold=0.65,
         persistence_windows=2,      # NEW
     ):
+        """
+        Initialize the hybrid anomaly detector with model, scaler, and detection parameters.
+        """
 
         self.if_model = if_model
         self.if_scaler = if_scaler
@@ -44,11 +67,11 @@ class HybridWaterAnomalyDetector:
         self._prev_appliance = False
 
 
-    # ───────────────────────────────────────
-    # CUSUM
-    # ───────────────────────────────────────
-
     def _run_cusum(self, window):
+        """
+        Run CUSUM change detection on a window of flow data.
+        Returns the final CUSUM statistic and whether a change was triggered.
+        """
 
         s = self.cusum_s
         triggered = False
@@ -80,11 +103,12 @@ class HybridWaterAnomalyDetector:
         return s, triggered
 
 
-    # ───────────────────────────────────────
-    # Feature extraction
-    # ───────────────────────────────────────
-
     def _extract_features(self, window):
+        """
+        Extract 5 statistical features from a window for anomaly detection.
+        Features: mnf, inter_mean, inter_frac, mean_flow, inter_std.
+        Returns a scaled and clipped feature vector for the ML model.
+        """
 
         inter = window[window < self.appliance_flow_thresh]
         nonzero = window[window > 0.0]
@@ -108,11 +132,12 @@ class HybridWaterAnomalyDetector:
         return clipped
 
 
-    # ───────────────────────────────────────
-    # Update
-    # ───────────────────────────────────────
-
     def update(self, window):
+        """
+        Update the detector with a new window of flow data.
+        Combines CUSUM and Isolation Forest scores, applies persistence filter.
+        Returns a dictionary with anomaly status and detailed scores.
+        """
 
         window = np.asarray(window, dtype=np.float32)
 
@@ -156,6 +181,9 @@ class HybridWaterAnomalyDetector:
 
 
     def reset(self):
+        """
+        Reset the detector's internal state (CUSUM, persistence streak).
+        """
 
         self.cusum_s = 0.0
         self._prev_appliance = False

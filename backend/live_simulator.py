@@ -1,13 +1,29 @@
+"""
+Live Water Flow Simulation for Real-Time Applications
+
+DESCRIPTION:
+    Provides a generator class for simulating minute-by-minute household water flow
+    in a live/online fashion. Used for real-time anomaly/leak detection demos and
+    interactive dashboards. Supports leak injection, sensor noise, and appliance-aware
+    event generation, closely mirroring the batch simulator but with stateful streaming.
+
+KEY FEATURES:
+    - Realistic appliance event generation (same logic as batch simulator)
+    - Daily volume constraints and multi-attempt regeneration
+    - Additive sensor noise on non-zero flows
+    - Leak injection (adds flow for a configurable duration/intensity)
+    - Stateless API: call next() to get the next minute's flow
+
+DEPENDENCIES:
+    - numpy, json: Data processing and appliance config
+"""
+
 import json
 import numpy as np
 import warnings
 
 MINUTES_PER_DAY = 1440
 SECONDS_PER_MIN = 60
-
-# Daily water budget (India, single-person well-served household)
-# Lower bound: BIS IS 1172 / MoHUA recommended minimum (135 LPCD)
-# Upper bound: comfortable urban usage above BIS norm
 DEFAULT_DAILY_MIN_L = 100
 DEFAULT_DAILY_MAX_L = 160
 
@@ -23,6 +39,10 @@ class LiveWaterFlowGenerator:
         max_regen_attempts=10,
         seed=None,
     ):
+        """
+        Initialize the live water flow generator.
+        Loads appliance priors, sets simulation parameters, and generates the first day.
+        """
         if seed is not None:
             np.random.seed(seed)
 
@@ -45,13 +65,10 @@ class LiveWaterFlowGenerator:
 
         self._generate_new_day()
 
-    # ==========================================================
-    # PUBLIC API
-    # ==========================================================
-
     def next(self):
         """
-        Returns next minute's flow value (LPM) with sensor noise applied.
+        Return the next minute's flow value (LPM), including sensor noise and any injected leak.
+        Advances the simulation by one minute, generating a new day if needed.
         """
         if self.current_minute >= MINUTES_PER_DAY:
             self.current_day += 1
@@ -79,6 +96,10 @@ class LiveWaterFlowGenerator:
         return float(flow_value)
 
     def inject_leak(self, duration_minutes=180, flow_lpm=0.4):
+        """
+        Inject a synthetic leak event for a given duration and flow rate (LPM).
+        Leak is additive to normal appliance flow.
+        """
         start = self.global_minute()
         end = start + duration_minutes
         self.injected_leak = {
@@ -88,16 +109,21 @@ class LiveWaterFlowGenerator:
         }
 
     def clear_leak(self):
+        """
+        Remove any active leak from the simulation.
+        """
         self.injected_leak = None
 
-    # ==========================================================
-    # INTERNAL
-    # ==========================================================
-
     def global_minute(self):
+        """
+        Return the current global minute index (across all simulated days).
+        """
         return self.current_day * MINUTES_PER_DAY + self.current_minute
 
     def _generate_new_day(self):
+        """
+        Generate a new day's worth of appliance events and flow, retrying if daily volume is out of bounds.
+        """
         for attempt in range(self.MAX_REGEN_ATTEMPTS):
             day_events = []
             for appliance in self.priors:
@@ -121,6 +147,9 @@ class LiveWaterFlowGenerator:
         self.day_flow = day_flow    # type: ignore
 
     def _generate_events_for_day(self, appliance, day):
+        """
+        Generate events for a single appliance on a given day, using Poisson sampling and appliance constraints.
+        """
         name       = appliance["appliance"]
         lam        = appliance["activation"]["events_per_day"]["lambda"]
         hour_probs = appliance["timing"]["start_hour"]["p"]
@@ -182,6 +211,9 @@ class LiveWaterFlowGenerator:
         return events
 
     def _render_day(self, events, day):
+        """
+        Render a day's worth of flow from a list of events, applying shape curves and flow limits.
+        """
         flow = np.zeros(MINUTES_PER_DAY)
 
         for ev in events:
@@ -202,6 +234,9 @@ class LiveWaterFlowGenerator:
         return flow
 
     def _make_shape_curve(self, shape, shape_cfg, dur):
+        """
+        Generate a normalized flow shape curve for an event (trapezoid, pulsed, or step).
+        """
         if shape == "trapezoid" and dur >= 4:
             ramp_s = shape_cfg.get("ramp_up_s", 5)
             fall_s = shape_cfg.get("ramp_down_s", 5)

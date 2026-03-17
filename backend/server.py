@@ -1,3 +1,24 @@
+"""
+Real-Time Water Usage Simulation and Anomaly Detection Server
+
+DESCRIPTION:
+    Runs a FastAPI + Socket.IO server for real-time water flow simulation and anomaly detection.
+    Streams synthetic household water usage data to a web frontend, supports leak injection,
+    simulation controls, and exposes anomaly detection results in real time.
+
+KEY FEATURES:
+    - Live simulation of household water flow (minute-by-minute)
+    - Real-time anomaly/leak detection using HybridWaterAnomalyDetector
+    - Leak injection (instant/ramp), simulation speed control, pause/resume
+    - WebSocket (Socket.IO) streaming to frontend dashboard
+    - Serves static frontend assets and index.html
+
+DEPENDENCIES:
+    - FastAPI, socketio, uvicorn: Web server and real-time communication
+    - numpy, pickle, json: Data/model loading
+    - live_simulator, model: Simulation and detection logic
+"""
+
 #!/usr/bin/env python3
 
 import asyncio
@@ -11,32 +32,21 @@ import socketio
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+import uvicorn
 
 from live_simulator import LiveWaterFlowGenerator
 from model import HybridWaterAnomalyDetector
 
-
-# --------------------------------------------------
-# Resolve Paths
-# --------------------------------------------------
 
 BASE_DIR      = Path(__file__).resolve().parent.parent
 ARTIFACTS_DIR = BASE_DIR / "artifacts"
 FRONTEND_DIR  = BASE_DIR / "frontend"
 
 
-# --------------------------------------------------
-# Socket.IO + FastAPI Setup
-# --------------------------------------------------
-
 sio        = socketio.AsyncServer(cors_allowed_origins="*", async_mode="asgi")
 app        = FastAPI()
 socket_app = socketio.ASGIApp(sio, app)
 
-
-# --------------------------------------------------
-# Serve Frontend
-# --------------------------------------------------
 
 app.mount(
     "/static",
@@ -46,40 +56,37 @@ app.mount(
 
 @app.get("/")
 async def serve_index():
+    """
+    Serve the main frontend HTML page.
+    """
     return FileResponse(FRONTEND_DIR / "index.html")
 
 
-# --------------------------------------------------
-# Load Artifacts
-# --------------------------------------------------
+def load_pickle(path):
+    with open(path, "rb") as f:
+        return pickle.load(f)
 
-with open(ARTIFACTS_DIR / "if_model.pkl", "rb") as f:
-    if_model = pickle.load(f)
+def load_json(path):
+    with open(path) as f:
+        return json.load(f)
 
-with open(ARTIFACTS_DIR / "if_scaler.pkl", "rb") as f:
-    if_scaler = pickle.load(f)
-
-with open(ARTIFACTS_DIR / "if_calibration.json") as f:
-    cal = json.load(f)
+if_model = load_pickle(ARTIFACTS_DIR / "if_model.pkl")
+if_scaler = load_pickle(ARTIFACTS_DIR / "if_scaler.pkl")
+cal = load_json(ARTIFACTS_DIR / "if_calibration.json")
 
 WINDOW_MINUTES = cal["window_minutes"]
 
 generator = LiveWaterFlowGenerator(BASE_DIR / "all_appliances.json")
-
 detector = HybridWaterAnomalyDetector(
-    if_model               = if_model,
-    if_scaler              = if_scaler,
-    cusum_k                = cal["cusum_k"],
-    cusum_h                = cal["cusum_h"],
-    if_threshold           = cal["if_threshold"],
-    if_score_scale         = cal["if_score_scale"],
-    appliance_flow_thresh  = cal["appliance_flow_thresh"],
+    if_model=if_model,
+    if_scaler=if_scaler,
+    cusum_k=cal["cusum_k"],
+    cusum_h=cal["cusum_h"],
+    if_threshold=cal["if_threshold"],
+    if_score_scale=cal["if_score_scale"],
+    appliance_flow_thresh=cal["appliance_flow_thresh"],
 )
 
-
-# --------------------------------------------------
-# Simulation State
-# --------------------------------------------------
 
 simulation_running = False
 simulation_speed   = 1.0
@@ -102,11 +109,11 @@ leak_mode         = "instant"
 leak_ramp_minutes = 5
 
 
-# --------------------------------------------------
-# Background Simulation Loop
-# --------------------------------------------------
-
 async def simulation_loop():
+    """
+    Main background loop for live simulation and anomaly detection.
+    Streams flow and detection results to frontend via Socket.IO.
+    """
 
     global simulation_running, simulation_speed, sim_minutes
     global leak_active, leak_intensity
@@ -203,16 +210,18 @@ async def simulation_loop():
 
 @app.on_event("startup")
 async def startup_event():
+    """
+    Start the simulation loop on server startup.
+    """
 
     asyncio.create_task(simulation_loop())
 
 
-# --------------------------------------------------
-# Simulation Controls
-# --------------------------------------------------
-
 @sio.event
 async def start_simulation(sid):
+    """
+    Start/resume the simulation.
+    """
 
     global simulation_running
 
@@ -223,6 +232,9 @@ async def start_simulation(sid):
 
 @sio.event
 async def pause_simulation(sid):
+    """
+    Pause the simulation.
+    """
 
     global simulation_running
 
@@ -233,6 +245,9 @@ async def pause_simulation(sid):
 
 @sio.event
 async def stop_simulation(sid):
+    """
+    Stop and reset the simulation and leak state.
+    """
 
     global simulation_running, sim_minutes
     global leak_active, leak_end_minute, leak_start_minute
@@ -257,6 +272,9 @@ async def stop_simulation(sid):
 
 @sio.event
 async def set_speed(sid, data):
+    """
+    Set the simulation speed (1x to 10x).
+    """
 
     global simulation_speed
 
@@ -271,12 +289,11 @@ async def set_speed(sid, data):
         pass
 
 
-# --------------------------------------------------
-# Leak Controls
-# --------------------------------------------------
-
 @sio.event
 async def inject_leak(sid, data):
+    """
+    Inject a leak with specified intensity, duration, and mode (instant/ramp).
+    """
 
     global leak_active, leak_intensity
     global leak_end_minute, leak_start_minute
@@ -309,6 +326,9 @@ async def inject_leak(sid, data):
 
 @sio.event
 async def stop_leak(sid):
+    """
+    Stop any active leak in the simulation.
+    """
 
     global leak_active, leak_end_minute, leak_start_minute
 
@@ -319,12 +339,6 @@ async def stop_leak(sid):
     await sio.emit("leak_status", {"active": False})
 
 
-# --------------------------------------------------
-# Run Server
-# --------------------------------------------------
-
 if __name__ == "__main__":
-
-    import uvicorn
 
     uvicorn.run(socket_app, host="0.0.0.0", port=8000, log_level="info")
